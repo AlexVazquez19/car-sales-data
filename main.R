@@ -16,4 +16,9 @@ setwd("/Users/alejandrovazquez/Desktop/econ121/car-sales-data")
 # load data
 df <- read.csv("Ad_table.csv")
 
+# verify data types are what they should be
+sapply(df, class)
 
+# change the 'Runned_Miles' column to integer type
+df <- df %>% mutate(Runned_Miles = na_if(Runned_Miles, ""))
+df$Runned_Miles <- as.integer(df$Runned_Miles)
