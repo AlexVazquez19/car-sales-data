@@ -192,12 +192,20 @@ ggplot(df_fil, aes(x = Reg_year)) +
   # Left skewed. It seems the majority of our data is relatively newer
   # vehicles manufactured within the past decade.
 
-# plot a histogram of the years the ads were posted
-ggplot(df_fil, aes(x = Adv_year)) +
-  geom_histogram(binwidth = 1, fill = "olivedrab", color = "black") +
-  xlab("Year Ad Posted") +
-  ylab("Frequency") +
-  ggtitle("Distribution of Ad Years")
+# plot a bar chart of the years the ads were posted
+adyear_counts <- df %>% 
+  group_by(Adv_year) %>% 
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+ggplot(adyear_counts, aes(x = reorder(Adv_year, -count), y = count)) +
+  geom_bar(stat = "identity", fill = "olivedrab") +
+  geom_text(aes(label = count), vjust = -0.5, position = position_dodge(width = 0.9)) +
+  xlab("Year Ad was Posted") +
+  ylab("Count") +
+  ggtitle("Count of Vehicles by Year Ad was Posted")
+  # Most of the vehicles in our data were listed for sale in 2018, which means
+  # our model will be most accurate for predicting sale price in 2018 value.
 
 # plot a histogram for miles
 ggplot(df, aes(x = Runned_Miles)) +
