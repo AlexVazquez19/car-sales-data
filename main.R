@@ -1,4 +1,4 @@
-## Loal Libraries and Data ----
+## Load Libraries and Data ----
 
 # load libraries
 library(ggplot2)
@@ -6,6 +6,8 @@ library(GGally)
 library(tidyr)
 library(dplyr)
 library(fixest)
+library(car)
+library(caret)
 
 # clear environment
 rm(list = ls())
@@ -16,7 +18,7 @@ setwd("/Users/alejandrovazquez/Desktop/econ121/car-sales-data")
 # load data
 df <- read.csv("Ad_table.csv")
 
-## Clean and Transform ----
+## Cleaning and Transformation ----
 
 # verify data types are what they should be
 sapply(df, class)
@@ -28,6 +30,7 @@ df$Runned_Miles <- as.integer(df$Runned_Miles)
 # change 'Price' to integer type
 df <- df %>% mutate(Price = na_if(Price, "Uknown"))
 df$Price <- as.integer(df$Price)
+
 
 # change blank values to NA
 df <- df %>% mutate(Bodytype = na_if(Bodytype, "")) # Bodytype
@@ -258,17 +261,44 @@ ggplot(df, aes(x = as.factor(Adv_month))) +
   # For some reason there is a lack of sales during the last four months of the
   # year.
 
+# check how many rows have no selling price
+sum(is.na(df_fil$Price))
+
+# remove rows without a selling price since it is a tiny portion of the data
+df_fil <- df_fil[!is.na(df_fil$Price), ]
+
 # Lets calculate what % of observations were dropped from my original dataset
 original_count <- nrow(df)
 filtered_count <- nrow(df_fil)
 percentage_filtered_out <- ((original_count - filtered_count) / original_count) * 100
 paste("Percentage of observations filtered out: ", round(percentage_filtered_out, 2), "%", sep = "")
-  # We only filtered out 2.13% of our original data
+  # We only filtered out 2.55% of our original data
 
-## Linear Model ----
+## Split Data into Training, Validation, Test ----
+
+set.seed(792002) # Set a seed for reproducibility
+
+# Randomize the dataset by sampling rows
+df_fil <- df_fil[sample(nrow(df_fil)), ]
+
+# Split dataset into training (60%) and the test + validation (40%)
+trainingIndex <- createDataPartition(df_fil$Price, p = 0.60, list = FALSE)
+df_training <- df_fil[trainingIndex, ]
+tempSet <- df_fil[-trainingIndex, ]
+
+# Split the remaining 40% into validation (50% of 40%) and test sets (50% of 40%)
+validationIndex <- createDataPartition(tempSet$Price, p = 0.5, list = FALSE)
+df_validation <- tempSet[validationIndex, ]
+df_test <- tempSet[-validationIndex, ]
+
+## Create Linear Model ----
+
+
 
 # create dummy variable for 'Maker'
-model <- feols(Price ~ Runned_Miles + Reg_year + Gearbox + Fuel_type + Bodytype, 
-               data = df_fil, 
-               vcov = 'hetero')
+model <- lm(Price ~ Runned_Miles + Reg_year + Gearbox + Fuel_type + Bodytype, 
+               data = df_fil)
 summary(model)
+
+vif_values <- vif(model)
+print(vif_values)
