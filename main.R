@@ -161,7 +161,48 @@ ggplot(df, aes(x = Reg_year)) +
   xlab("Registration/Model Year") +
   ylab("Frequency") +
   ggtitle("Distribution of Vehicle Model Years")
-  # It seems the majority of our data is relatively newer vehicles manufactured
-  # within the past decade.
+  # Left skewed. It seems the majority of our data is relatively newer
+  # vehicles manufactured within the past decade.
+
+# plot a histogram for miles
+ggplot(df, aes(x = Runned_Miles)) +
+  geom_histogram(binwidth = 10000, fill = "dodgerblue2", color = "black") +
+  xlab("Miles") +
+  ylab("Frequency") +
+  ggtitle("Distribution of Vehicle Mileage at Time of Sale")
+  # We have some outliers because the histogram is extremely right skewed. Let's
+  # get rid of those observations.
+
+# plot a box plot for miles to see outliers more clearly
+boxplot(df$Runned_Miles, main = "Boxplot of Runned Miles", ylab = "Miles")
+  # It seems one of the vehicles somehow sold with over 6,000,000 miles. We
+  # should remove this vehicle along with the other outliers.
+
+# identify outliers by miles
+IQR_values <- IQR(df$Runned_Miles, na.rm = TRUE)
+Q1 <- quantile(df$Runned_Miles, 0.25, na.rm = TRUE)
+Q3 <- quantile(df$Runned_Miles, 0.75, na.rm = TRUE)
+
+lower_bound <- Q1 - 1.5 * IQR_values # -77,120
+upper_bound <- Q3 + 1.5 * IQR_values # 166,272
+
+# Because a vehicle cannot have negative miles, we can disregard the lower bound
+outliers <- subset(df, Runned_Miles > upper_bound)
+  # We have 1,739 outliers. Lets remove them since it is only a small portion
+  # of the data and it will give us a clearer effect of miles on sale price
+  # in our model.
+
+# Remove outliers with high mileage
+df <- subset(df, Runned_Miles <= upper_bound)
+
+# re-plot a histogram for miles
+ggplot(df, aes(x = Runned_Miles)) +
+  geom_histogram(binwidth = 10000, fill = "dodgerblue2", color = "black") +
+  xlab("Miles") +
+  ylab("Frequency") +
+  ggtitle("Distribution of Vehicle Mileage at Time of Sale")
+  # Now that we can properly interpret this histogram, we can see it is right
+  # skewed, which means most of the vehicles in our data have lower mileage
+  # (less than 50,000).
 
 
