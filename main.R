@@ -31,13 +31,16 @@ df$Runned_Miles <- as.integer(df$Runned_Miles)
 df <- df %>% mutate(Price = na_if(Price, "Uknown"))
 df$Price <- as.integer(df$Price)
 
-
 # change blank values to NA
 df <- df %>% mutate(Bodytype = na_if(Bodytype, "")) # Bodytype
 df <- df %>% mutate(Color = na_if(Color, "")) # Color
 df <- df %>% mutate(Engin_size = na_if(Engin_size, "")) # Engin_size
 df <- df %>% mutate(Gearbox = na_if(Gearbox, "")) # Gearbox
 df <- df %>% mutate(Fuel_type = na_if(Fuel_type, "")) # Fuel_type
+
+# Remove 'L' from the end of the Engin_size values and convert to numeric
+df$Engin_size <- gsub("L", "", df$Engin_size)
+df$Engin_size <- as.numeric(df$Engin_size)
 
 # view a summary of the data to see if any other adjustments are needed
 summary(df)
@@ -55,7 +58,7 @@ head(month, 10)
 # Remove month outliers
 df <- df %>% filter(Adv_month <= 12)
 
-## Exploratory Analysis ----
+## Exploratory Analysis: Maker ----
 
 # view the top 10 manufacturers represented in this dataset
 make_counts <- df %>%
@@ -84,6 +87,8 @@ df_fil <- df %>% filter(Maker %in% make_counts$Maker[make_counts$count >= 50])
   # ensures most high-end low-volume manufacturers like McLaren and Aston Martin 
   # remain in the dataset.
 
+## Exploratory Analysis: Body Type ----
+
 # create a bar chart to show the body types in our dataset
 bodytype_counts <- df %>% 
   group_by(Bodytype) %>% 
@@ -106,6 +111,8 @@ summary(bodytype_counts$count)
 df_fil <- df_fil %>% filter(Bodytype %in% bodytype_counts$Bodytype[bodytype_counts$count >= 700])
   # This removes all the specialty body types while maintaining all the standard
   # body types, which includes the majority of the data.
+
+## Exploratory Analysis: Fuel Type ----
 
 # create a bar chart to show the fuel types in our dataset
 fueltype_counts <- df %>% 
@@ -131,6 +138,8 @@ df_fil <- df_fil %>% filter(Fuel_type %in% fueltype_counts$Fuel_type[fueltype_co
   # This removes the fuel types that are not common while maintaining the most
   # common fuel types which represent the majority of the data.
 
+## Exploratory Analysis: Color ----
+
 # create a bar chart to show the colors in our dataset
 color_counts <- df %>% 
   group_by(Color) %>% 
@@ -150,10 +159,42 @@ ggplot(color_counts, aes(x = reorder(Color, -count), y = count)) +
   # prevent us from doing so.
 
 summary(color_counts$count)
-  # For now I won't filter out any colors because I do not think color has
-  # that large of an impact on sale price. Although I may revisit this later.
+# For now I won't filter out any colors because I do not think color has
+# that large of an impact on sale price. Although I may revisit this later.
 
-# create a bar chart to show the engine sizes in our dataset
+## Exploratory Analysis: Engine Size ----
+
+# plot a box plot for engine size to see outliers
+boxplot(df_fil$Engin_size, main = "Boxplot of Engine Size", ylab = "Engine Size")
+  # Looks like there are some significant outliers, one vehicle even has
+  # 3000 Liters! Lets remove them since it is only a few.
+
+# identify outliers by engine size
+IQR_values <- IQR(df$Engin_size, na.rm = TRUE)
+Q1 <- quantile(df$Engin_size, 0.25, na.rm = TRUE)
+Q3 <- quantile(df$Engin_size, 0.75, na.rm = TRUE)
+
+lower_bound <- Q1 - 1.5 * IQR_values # -77,120
+upper_bound <- Q3 + 1.5 * IQR_values # 166,272
+
+outliers <- subset(df, Engin_size > upper_bound | Engin_size < lower_bound)
+nrow(outliers)
+  # Because there are 37,314 outliers, I think we should only remove the 
+  # extreme outliers so as not to lost too much data.
+
+# Remove outliers with extremely large engine size (5 observations)
+df_fil <- subset(df_fil, Engin_size <= 8)
+
+# create a histogram to show the engine sizes in our dataset
+ggplot(df_fil, aes(x = Engin_size)) +
+  geom_histogram(binwidth = 1, fill = "snow3", color = "black") +
+  xlab("Engine Size (L)") +
+  ylab("Frequency") +
+  ggtitle("Distribution of Vehicle Engine Sizes")
+
+## Exploratory Analysis: Gearbox ----
+
+# create a bar chart to show the transmissions in our dataset
 gearbox_counts <- df %>% 
   group_by(Gearbox) %>% 
   summarise(count = n()) %>%
@@ -172,6 +213,8 @@ ggplot(gearbox_counts, aes(x = reorder(Gearbox, -count), y = count)) +
 df_fil <- df_fil %>% filter(Gearbox %in% gearbox_counts$Gearbox[gearbox_counts$count >= 200])
   # This removes semi-automatic vehicles which represent a tiny fraction of
   # the data.
+
+## Exploratory Analysis: Model Years ----
 
 # view the distribution of model years for vehicles sold
 year_counts <- df %>% 
@@ -195,6 +238,8 @@ ggplot(df_fil, aes(x = Reg_year)) +
   # Left skewed. It seems the majority of our data is relatively newer
   # vehicles manufactured within the past decade.
 
+## Exploratory Analysis: Ad Years ----
+
 # plot a bar chart of the years the ads were posted
 adyear_counts <- df %>% 
   group_by(Adv_year) %>% 
@@ -209,6 +254,8 @@ ggplot(adyear_counts, aes(x = reorder(Adv_year, -count), y = count)) +
   ggtitle("Count of Vehicles by Year Ad was Posted")
   # Most of the vehicles in our data were listed for sale in 2018, which means
   # our model will be most accurate for predicting sale price in 2018 value.
+
+## Exploratory Analysis: Miles ----
 
 # plot a histogram for miles
 ggplot(df, aes(x = Runned_Miles)) +
@@ -251,6 +298,8 @@ ggplot(df_fil, aes(x = Runned_Miles)) +
   # skewed, which means most of the vehicles in our data have lower mileage
   # (less than 50,000).
 
+## Exploratory Analysis: Month of Sale ----
+
 # create bar plot for months of sale
 ggplot(df, aes(x = as.factor(Adv_month))) +
   geom_bar(fill = "thistle2", color = "black") +
@@ -261,11 +310,15 @@ ggplot(df, aes(x = as.factor(Adv_month))) +
   # For some reason there is a lack of sales during the last four months of the
   # year.
 
+## Exploratory Analysis: Price ----
+
 # check how many rows have no selling price
 sum(is.na(df_fil$Price))
 
 # remove rows without a selling price since it is a tiny portion of the data
 df_fil <- df_fil[!is.na(df_fil$Price), ]
+
+## Exploratory Analysis Conclusion ----
 
 # Lets calculate what % of observations were dropped from my original dataset
 original_count <- nrow(df)
@@ -293,12 +346,3 @@ df_test <- tempSet[-validationIndex, ]
 
 ## Create Linear Model ----
 
-
-
-# create dummy variable for 'Maker'
-model <- lm(Price ~ Runned_Miles + Reg_year + Gearbox + Fuel_type + Bodytype, 
-               data = df_fil)
-summary(model)
-
-vif_values <- vif(model)
-print(vif_values)
