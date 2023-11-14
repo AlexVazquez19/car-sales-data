@@ -54,7 +54,7 @@ df <- df %>% filter(Adv_month <= 12)
 
 ## Exploratory Analysis ----
 
-# view the vehicle top and bottom 10 manufacturers represented in this dataset
+# view the top 10 manufacturers represented in this dataset
 make_counts <- df %>%
   group_by(Maker) %>%
   summarize(count = n()) %>%
@@ -68,13 +68,18 @@ ggplot(top_10, aes(x = reorder(Maker, -count), y = count)) +
   xlab("Maker") +
   ylab("Count") +
   ggtitle("Top 10 Car Makers by Count")
-top_10
 
-bottom_10 <- tail(make_counts, 10) # bottom 10
-bottom_10
-  # It seems there are quite a few manufacturers with only 1 vehicle in this
-  # dataset. We may need to remove these before making dummies for 'Maker' to
-  # prevent overfitting and reduce model complexity.
+summary(make_counts$count)
+  # It seems that 25% of the makes in our dataset have less than 3 vehicles. 
+  # Because of this we may need to remove these makes before creating dummies for
+  # 'Maker' to prevent overfitting and reduce model complexity.
+
+# Lets set a threshold at 50 vehicles.
+df_fil <- df %>% filter(Maker %in% make_counts$Maker[make_counts$count >= 50])
+  # I believe this is reasonable because  removes makes infrequently represented
+  # in the data while maintaining a majority of the data. Plus, this threshold 
+  # ensures most high-end low-volume manufacturers like McLaren and Aston Martin 
+  # remain in the dataset.
 
 # create a bar chart to show the body types in our dataset
 bodytype_counts <- df %>% 
@@ -89,8 +94,15 @@ ggplot(bodytype_counts, aes(x = reorder(Bodytype, -count), y = count)) +
   xlab("Body Type") +
   ylab("Count") +
   ggtitle("Count of Vehicles by Body Type")
-  # We may also have to remove some of the body types with low counts if we
+  # We will need to remove some of the body types with low counts if we
   # wish to create a dummy variable for 'Bodytype'.
+
+summary(bodytype_counts$count)
+
+# We will set a threshold at 700.
+df_fil <- df_fil %>% filter(Bodytype %in% bodytype_counts$Bodytype[bodytype_counts$count >= 700])
+  # This removes all the specialty body types while maintaining all the standard
+  # body types, which includes the majority of the data.
 
 # create a bar chart to show the fuel types in our dataset
 fueltype_counts <- df %>% 
@@ -108,6 +120,13 @@ ggplot(fueltype_counts, aes(x = reorder(Fuel_type, -count), y = count)) +
   # It seems the vast majority of vehicles are Diesel or Petrol (~ 97%), with a 
   # small proportion being hybrid (~ 1.7%) or electric (~ 0.5%). This is also
   # a concern if we wish to create dummy variables for fuel type.
+
+summary(fueltype_counts$count)
+
+# We will set a threshold at 300.
+df_fil <- df_fil %>% filter(Fuel_type %in% fueltype_counts$Fuel_type[fueltype_counts$count >= 300])
+  # This removes the fuel types that are not common while maintaining the most
+  # common fuel types which represent the majority of the data.
 
 # create a bar chart to show the colors in our dataset
 color_counts <- df %>% 
@@ -127,6 +146,10 @@ ggplot(color_counts, aes(x = reorder(Color, -count), y = count)) +
   # remove the other colors, but there is a large amount of NAs which may
   # prevent us from doing so.
 
+summary(color_counts$count)
+  # For now I won't filter out any colors because I do not think color has
+  # that large of an impact on sale price. Although I may revisit this later.
+
 # create a bar chart to show the engine sizes in our dataset
 gearbox_counts <- df %>% 
   group_by(Gearbox) %>% 
@@ -142,21 +165,26 @@ ggplot(gearbox_counts, aes(x = reorder(Gearbox, -count), y = count)) +
   # If we create a dummy variable for Gearbox we can just remove semi-automatic
   # since the vast majority of the data is either manual or automatic.
 
+# We will set a threshold at 200.
+df_fil <- df_fil %>% filter(Gearbox %in% gearbox_counts$Gearbox[gearbox_counts$count >= 200])
+  # This removes semi-automatic vehicles which represent a tiny fraction of
+  # the data.
+
 # view the distribution of model years for vehicles sold
 year_counts <- df %>% 
   group_by(Reg_year) %>% 
   summarise(count = n()) %>%
   arrange(desc(count))
-year_counts
+summary(year_counts$Reg_year)
 tail(year_counts, 10)
   # Since there are only 134 vehicles made before 2000, we can filter our data
   # to only include post-2000 vehicles to reduce model complexity.
 
 # remove vehicles older than 2000
-df <- df %>% filter(Reg_year >= 2000)
+df_fil <- df_fil %>% filter(Reg_year >= 2000)
 
 # now we can plot a histogram of the years
-ggplot(df, aes(x = Reg_year)) +
+ggplot(df_fil, aes(x = Reg_year)) +
   geom_histogram(binwidth = 1, fill = "lightgoldenrod1", color = "black") +
   xlab("Registration/Model Year") +
   ylab("Frequency") +
@@ -193,10 +221,10 @@ outliers <- subset(df, Runned_Miles > upper_bound)
   # in our model.
 
 # Remove outliers with high mileage
-df <- subset(df, Runned_Miles <= upper_bound)
+df_fil <- subset(df_fil, Runned_Miles <= upper_bound)
 
 # re-plot a histogram for miles
-ggplot(df, aes(x = Runned_Miles)) +
+ggplot(df_fil, aes(x = Runned_Miles)) +
   geom_histogram(binwidth = 10000, fill = "dodgerblue2", color = "black") +
   xlab("Miles") +
   ylab("Frequency") +
@@ -205,4 +233,19 @@ ggplot(df, aes(x = Runned_Miles)) +
   # skewed, which means most of the vehicles in our data have lower mileage
   # (less than 50,000).
 
+# create bar plot for months of sale
+ggplot(df, aes(x = as.factor(Adv_month))) +
+  geom_bar(fill = "thistle2", color = "black") +
+  scale_x_discrete(labels = c('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')) +
+  xlab("Month") +
+  ylab("Frequency") +
+  ggtitle("Distribution of Data by Month")
+  # For some reason there is a lack of sales during the last four months of the
+  # year.
 
+# Lets calculate what % of observations were dropped from my original dataset
+original_count <- nrow(df)
+filtered_count <- nrow(df_fil)
+percentage_filtered_out <- ((original_count - filtered_count) / original_count) * 100
+paste("Percentage of observations filtered out: ", round(percentage_filtered_out, 2), "%", sep = "")
+  # We only filtered out 2.13% of our original data
