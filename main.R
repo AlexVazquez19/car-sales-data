@@ -192,6 +192,13 @@ ggplot(df_fil, aes(x = Reg_year)) +
   # Left skewed. It seems the majority of our data is relatively newer
   # vehicles manufactured within the past decade.
 
+# plot a histogram of the years the ads were posted
+ggplot(df_fil, aes(x = Adv_year)) +
+  geom_histogram(binwidth = 1, fill = "olivedrab", color = "black") +
+  xlab("Year Ad Posted") +
+  ylab("Frequency") +
+  ggtitle("Distribution of Ad Years")
+
 # plot a histogram for miles
 ggplot(df, aes(x = Runned_Miles)) +
   geom_histogram(binwidth = 10000, fill = "dodgerblue2", color = "black") +
@@ -249,3 +256,11 @@ filtered_count <- nrow(df_fil)
 percentage_filtered_out <- ((original_count - filtered_count) / original_count) * 100
 paste("Percentage of observations filtered out: ", round(percentage_filtered_out, 2), "%", sep = "")
   # We only filtered out 2.13% of our original data
+
+## Linear Model ----
+
+# create dummy variable for 'Maker'
+model <- feols(Price ~ Runned_Miles + Reg_year + Gearbox + Fuel_type + Bodytype, 
+               data = df_fil, 
+               vcov = 'hetero')
+summary(model)
