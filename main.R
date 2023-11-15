@@ -358,7 +358,6 @@ original_count <- nrow(df)
 filtered_count <- nrow(df_fil)
 percentage_filtered_out <- ((original_count - filtered_count) / original_count) * 100
 paste("Percentage of observations filtered out: ", round(percentage_filtered_out, 2), "%", sep = "")
-  # We only filtered out 2.55% of our original data
 
 ## Split Data into Training, Validation, Test ----
 
@@ -378,4 +377,46 @@ df_validation <- tempSet[validationIndex, ]
 df_test <- tempSet[-validationIndex, ]
 
 ## Create Linear Model ----
+
+summary(df_fil$log_Price)
+
+# Fit the model
+model <- lm(log_Price ~ Runned_Miles + Reg_year + Engin_size + Maker + Fuel_type + Gearbox, 
+            data = df_training)
+
+# View the model summary
+summary(model)
+
+# Predict on validation set
+predictions <- predict(model, newdata = df_validation)
+
+
+mae <- mean(abs(predictions - df_validation$log_Price), na.rm = TRUE)
+rmse <- sqrt(mean((predictions - df_validation$log_Price)^2, na.rm = TRUE))
+print(paste("MAE:", mae))
+print(paste("RMSE:", rmse))
+
+# Calculate residuals and fitted values
+residuals <- residuals(model)
+fitted_values <- fitted(model)
+
+# Create a dataframe for plotting
+plot_data <- data.frame(Residuals = residuals, Fitted = fitted_values)
+
+# Plotting Residuals vs Fitted Values
+ggplot(plot_data, aes(x = Fitted, y = Residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  ggtitle("Residuals vs Fitted") +
+  xlab("Fitted Values") +
+  ylab("Residuals")
+
+# Normal Q-Q Plot
+ggplot(plot_data, aes(sample = Residuals)) +
+  geom_qq() +
+  geom_qq_line() +
+  ggtitle("Normal Q-Q Plot") +
+  xlab("Theoretical Quantiles") +
+  ylab("Sample Quantiles")
+
 
