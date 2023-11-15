@@ -337,18 +337,20 @@ nrow(outliers)
   # all of them. I will set a threshold at 500,000 to remove the extreme
   # outliers while retaining data on some of the high-value vehicle makes.
 
-# Remove outliers with high mileage
-df_fil <- subset(df_fil, Price <= 70000)
+# Remove outliers with extremely high price
+df_fil <- subset(df_fil, Price <= 1000000)
 
-# create a histogram for the sale prices
-ggplot(df_fil, aes(x = Price)) +
-  geom_histogram(binwidth = 10000, fill = "lightgreen", color = "black") +
-  xlab("Sale Price") +
-  ylab("Frequency") +
-  ggtitle("Distribution of Vehicle Sale Prices")
+# Log transformation of Price to mitigate effect of outliers
+df_fil$log_Price <- log(df_fil$Price)
+
+# Histogram for the log-transformed Price data
+ggplot(df_fil, aes(x = log_Price)) +
+  geom_histogram(bins = 50, fill = "lightgreen", color = "black") +
+  ggtitle("Log Transformed Price Distribution") +
+  xlab("Log(Price)") +
+  ylab("Frequency")
+  # The distribution is much closer to normal
   
-
-
 ## Exploratory Analysis Conclusion ----
 
 # Lets calculate what % of observations were dropped from my original dataset
