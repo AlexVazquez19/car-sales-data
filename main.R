@@ -174,8 +174,8 @@ IQR_values <- IQR(df$Engin_size, na.rm = TRUE)
 Q1 <- quantile(df$Engin_size, 0.25, na.rm = TRUE)
 Q3 <- quantile(df$Engin_size, 0.75, na.rm = TRUE)
 
-lower_bound <- Q1 - 1.5 * IQR_values # -77,120
-upper_bound <- Q3 + 1.5 * IQR_values # 166,272
+lower_bound <- Q1 - 1.5 * IQR_values # 0.5
+upper_bound <- Q3 + 1.5 * IQR_values # 2.9
 
 outliers <- subset(df, Engin_size > upper_bound | Engin_size < lower_bound)
 nrow(outliers)
@@ -187,7 +187,7 @@ df_fil <- subset(df_fil, Engin_size <= 8)
 
 # create a histogram to show the engine sizes in our dataset
 ggplot(df_fil, aes(x = Engin_size)) +
-  geom_histogram(binwidth = 1, fill = "snow3", color = "black") +
+  geom_histogram(binwidth = 0.5, fill = "snow3", color = "black") +
   xlab("Engine Size (L)") +
   ylab("Frequency") +
   ggtitle("Distribution of Vehicle Engine Sizes")
@@ -317,6 +317,37 @@ sum(is.na(df_fil$Price))
 
 # remove rows without a selling price since it is a tiny portion of the data
 df_fil <- df_fil[!is.na(df_fil$Price), ]
+
+# plot a box plot for sale price to see outliers
+boxplot(df_fil$Price, main = "Boxplot of Sale Price", ylab = "Sale Price")
+  # There are some extreme outliers that we will need to remove.
+
+# identify outliers by price
+IQR_values <- IQR(df$Price, na.rm = TRUE)
+Q1 <- quantile(df$Price, 0.25, na.rm = TRUE)
+Q3 <- quantile(df$Price, 0.75, na.rm = TRUE)
+
+lower_bound <- Q1 - 1.5 * IQR_values # -13,250
+upper_bound <- Q3 + 1.5 * IQR_values # 35,390
+
+# Because a vehicle cannot sell for a negative price, we can disregard the lower bound
+outliers <- subset(df, Price > upper_bound)
+nrow(outliers) 
+  # Since there are 19,033 outliers, we will need to be careful not to remove
+  # all of them. I will set a threshold at 500,000 to remove the extreme
+  # outliers while retaining data on some of the high-value vehicle makes.
+
+# Remove outliers with high mileage
+df_fil <- subset(df_fil, Price <= 70000)
+
+# create a histogram for the sale prices
+ggplot(df_fil, aes(x = Price)) +
+  geom_histogram(binwidth = 10000, fill = "lightgreen", color = "black") +
+  xlab("Sale Price") +
+  ylab("Frequency") +
+  ggtitle("Distribution of Vehicle Sale Prices")
+  
+
 
 ## Exploratory Analysis Conclusion ----
 
