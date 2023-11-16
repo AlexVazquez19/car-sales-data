@@ -192,6 +192,9 @@ ggplot(df_fil, aes(x = Engin_size)) +
   ylab("Frequency") +
   ggtitle("Distribution of Vehicle Engine Sizes")
 
+# Log transformation of Engine Size to mitigate effect of outliers
+df_fil$log_Engin_size <- log(df_fil$Engin_size + 1)
+
 ## Exploratory Analysis: Gearbox ----
 
 # create a bar chart to show the transmissions in our dataset
@@ -343,6 +346,14 @@ df_fil <- subset(df_fil, Price <= 1000000)
 # Log transformation of Price to mitigate effect of outliers
 df_fil$log_Price <- log(df_fil$Price)
 
+# Histogram for Price data
+ggplot(df_fil, aes(x = Price)) +
+  geom_histogram(bins = 50, fill = "forestgreen", color = "black") +
+  ggtitle("Log Transformed Price Distribution") +
+  xlab("Log(Price)") +
+  ylab("Frequency")
+# The distribution is much closer to normal
+
 # Histogram for the log-transformed Price data
 ggplot(df_fil, aes(x = log_Price)) +
   geom_histogram(bins = 50, fill = "lightgreen", color = "black") +
@@ -358,6 +369,17 @@ original_count <- nrow(df)
 filtered_count <- nrow(df_fil)
 percentage_filtered_out <- ((original_count - filtered_count) / original_count) * 100
 paste("Percentage of observations filtered out: ", round(percentage_filtered_out, 2), "%", sep = "")
+
+## Scatter plots ----
+
+# plot miles vs log price
+plot(df_fil$Runned_Miles, df_fil$log_Price, main = "Runned Miles vs Log(Price)")
+
+# plot engine size vs log price
+plot(df_fil$Engin_size, df_fil$log_Price, main = "Engine Size vs Log(Price)")
+
+# plot model year vs log price
+plot(df_fil$Reg_year, df_fil$log_Price, main = "Model Year vs Log(Price)")
 
 ## Split Data into Training, Validation, Test ----
 
@@ -378,45 +400,41 @@ df_test <- tempSet[-validationIndex, ]
 
 ## Create Linear Model ----
 
-summary(df_fil$log_Price)
-
 # Fit the model
 model <- lm(log_Price ~ Runned_Miles + Reg_year + Engin_size + Maker + Fuel_type + Gearbox, 
             data = df_training)
 
 # View the model summary
 summary(model)
-
-# Predict on validation set
-predictions <- predict(model, newdata = df_validation)
-
-
-mae <- mean(abs(predictions - df_validation$log_Price), na.rm = TRUE)
-rmse <- sqrt(mean((predictions - df_validation$log_Price)^2, na.rm = TRUE))
-print(paste("MAE:", mae))
-print(paste("RMSE:", rmse))
-
-# Calculate residuals and fitted values
+  
+# create fitted vs residuals plot
 residuals <- residuals(model)
 fitted_values <- fitted(model)
+plot(fitted_values, residuals, xlab = "Fitted Values", ylab = "Residuals", main = "Fitted vs Residuals")
+abline(h = 0, col = "red", lty = "dotted", lwd = 1.5) # add a horizontal line at 0
+lowess_fit <- lowess(fitted_values, residuals)
+lines(lowess_fit, col = "royalblue", lwd = 1.5) # add lowess line
 
-# Create a dataframe for plotting
+# create histogram of residuals
+hist(model$residuals, main = "Residual Histogram")
+
+# create normal Q-Q plot
 plot_data <- data.frame(Residuals = residuals, Fitted = fitted_values)
-
-# Plotting Residuals vs Fitted Values
-ggplot(plot_data, aes(x = Fitted, y = Residuals)) +
-  geom_point() +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-  ggtitle("Residuals vs Fitted") +
-  xlab("Fitted Values") +
-  ylab("Residuals")
-
-# Normal Q-Q Plot
 ggplot(plot_data, aes(sample = Residuals)) +
   geom_qq() +
   geom_qq_line() +
   ggtitle("Normal Q-Q Plot") +
   xlab("Theoretical Quantiles") +
   ylab("Sample Quantiles")
+
+
+
+
+
+
+# Predict on validation set
+predictions <- predict(model, newdata = df_validation)
+
+
 
 
