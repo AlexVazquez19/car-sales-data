@@ -177,7 +177,7 @@ Q3 <- quantile(df$Engin_size, 0.75, na.rm = TRUE)
 lower_bound <- Q1 - 1.5 * IQR_values # 0.5
 upper_bound <- Q3 + 1.5 * IQR_values # 2.9
 
-outliers <- subset(df, Engin_size > upper_bound | Engin_size < lower_bound)
+outliers <- subset(df, Engin_size < lower_bound | Engin_size > upper_bound)
 nrow(outliers)
   # Because there are 37,314 outliers, I think we should only remove the 
   # extreme outliers so as not to lost too much data.
@@ -334,14 +334,14 @@ lower_bound <- Q1 - 1.5 * IQR_values # -13,250
 upper_bound <- Q3 + 1.5 * IQR_values # 35,390
 
 # Because a vehicle cannot sell for a negative price, we can disregard the lower bound
-outliers <- subset(df, Price > upper_bound)
+outliers <- subset(df, Price > 100000)
 nrow(outliers) 
   # Since there are 19,033 outliers, we will need to be careful not to remove
   # all of them. I will set a threshold at 500,000 to remove the extreme
-  # outliers while retaining data on some of the high-value vehicle makes.
+  # outliers while retaining data on some high-value vehicles.
 
 # Remove outliers with extremely high price
-df_fil <- subset(df_fil, Price <= 1000000)
+df_fil <- subset(df_fil, Price <= 500000)
 
 # Log transformation of Price to mitigate effect of outliers
 df_fil$log_Price <- log(df_fil$Price)
@@ -352,7 +352,6 @@ ggplot(df_fil, aes(x = Price)) +
   ggtitle("Log Transformed Price Distribution") +
   xlab("Log(Price)") +
   ylab("Frequency")
-# The distribution is much closer to normal
 
 # Histogram for the log-transformed Price data
 ggplot(df_fil, aes(x = log_Price)) +
@@ -385,6 +384,13 @@ plot(df_fil$Reg_year, df_fil$log_Price, main = "Model Year vs Log(Price)")
 
 set.seed(792002) # Set a seed for reproducibility
 
+# convert categorical variables as factors
+df_fil$Maker <- as.factor(df_fil$Maker)
+df_fil$Fuel_type <- as.factor(df_fil$Fuel_type)
+df_fil$Bodytype <- as.factor(df_fil$Bodytype)
+df_fil$Gearbox <- as.factor(df_fil$Gearbox)
+df_fil$Color <- as.factor(df_fil$Color)
+
 # Randomize the dataset by sampling rows
 df_fil <- df_fil[sample(nrow(df_fil)), ]
 
@@ -398,25 +404,26 @@ validationIndex <- createDataPartition(tempSet$Price, p = 0.5, list = FALSE)
 df_validation <- tempSet[validationIndex, ]
 df_test <- tempSet[-validationIndex, ]
 
-## Create Linear Model ----
+## Linear Model 1 ----
 
-# Fit the model
-model <- lm(log_Price ~ Runned_Miles + Reg_year + Engin_size + Maker + Fuel_type + Gearbox, 
+# Model 1 - contains the most possible relevant dependent variables
+model_1 <- lm(log_Price ~ Runned_Miles + Reg_year + Engin_size + Bodytype + Maker 
+            + Fuel_type + Gearbox + Color, 
             data = df_training)
 
 # View the model summary
-summary(model)
+summary(model_1)
   
 # create fitted vs residuals plot
-residuals <- residuals(model)
-fitted_values <- fitted(model)
+residuals <- residuals(model_1)
+fitted_values <- fitted(model_1)
 plot(fitted_values, residuals, xlab = "Fitted Values", ylab = "Residuals", main = "Fitted vs Residuals")
 abline(h = 0, col = "red", lty = "dotted", lwd = 1.5) # add a horizontal line at 0
 lowess_fit <- lowess(fitted_values, residuals)
 lines(lowess_fit, col = "royalblue", lwd = 1.5) # add lowess line
 
 # create histogram of residuals
-hist(model$residuals, main = "Residual Histogram")
+hist(model_1$residuals, main = "Residual Histogram")
 
 # create normal Q-Q plot
 plot_data <- data.frame(Residuals = residuals, Fitted = fitted_values)
@@ -427,14 +434,125 @@ ggplot(plot_data, aes(sample = Residuals)) +
   xlab("Theoretical Quantiles") +
   ylab("Sample Quantiles")
 
+## Linear Model 2 ----
 
+# Model 2 - simpler model with only make, mileage, and year
+model_2 <- lm(log_Price ~ Runned_Miles + Reg_year + Maker, 
+            data = df_training)
 
+# View the model summary
+summary(model_2)
 
+# create fitted vs residuals plot
+residuals <- residuals(model_2)
+fitted_values <- fitted(model_2)
+plot(fitted_values, residuals, xlab = "Fitted Values", ylab = "Residuals", main = "Fitted vs Residuals")
+abline(h = 0, col = "red", lty = "dotted", lwd = 1.5) # add a horizontal line at 0
+lowess_fit <- lowess(fitted_values, residuals)
+lines(lowess_fit, col = "royalblue", lwd = 1.5) # add lowess line
 
+# create histogram of residuals
+hist(model_2$residuals, main = "Residual Histogram")
 
-# Predict on validation set
-predictions <- predict(model, newdata = df_validation)
+# create normal Q-Q plot
+plot_data <- data.frame(Residuals = residuals, Fitted = fitted_values)
+ggplot(plot_data, aes(sample = Residuals)) +
+  geom_qq() +
+  geom_qq_line() +
+  ggtitle("Normal Q-Q Plot") +
+  xlab("Theoretical Quantiles") +
+  ylab("Sample Quantiles")
 
+## Linear Model 3 ----
 
+# Model 3 - Model 1 but without engine size or color because I believe they have a negligible effect on price
+model_3 <- lm(log_Price ~ Runned_Miles + Reg_year + Bodytype + Maker + Fuel_type 
+            + Gearbox, 
+            data = df_training)
 
+# View the model summary
+summary(model_3)
 
+# create fitted vs residuals plot
+residuals <- residuals(model_3)
+fitted_values <- fitted(model_3)
+plot(fitted_values, residuals, xlab = "Fitted Values", ylab = "Residuals", main = "Fitted vs Residuals")
+abline(h = 0, col = "red", lty = "dotted", lwd = 1.5) # add a horizontal line at 0
+lowess_fit <- lowess(fitted_values, residuals)
+lines(lowess_fit, col = "royalblue", lwd = 1.5) # add lowess line
+
+# create histogram of residuals
+hist(model_3$residuals, main = "Residual Histogram")
+
+# create normal Q-Q plot
+plot_data <- data.frame(Residuals = residuals, Fitted = fitted_values)
+ggplot(plot_data, aes(sample = Residuals)) +
+  geom_qq() +
+  geom_qq_line() +
+  ggtitle("Normal Q-Q Plot") +
+  xlab("Theoretical Quantiles") +
+  ylab("Sample Quantiles")
+
+## Make Predictions and Evaluate Model ----
+
+# predict models on validation set
+predictions_1 <- predict(model_1, newdata = df_validation)
+predictions_2 <- predict(model_2, newdata = df_validation)
+predictions_3 <- predict(model_3, newdata = df_validation)
+
+# get the actual values that the predictions correspond to
+actual_values <- df_validation$log_Price
+
+# plot actual vs predicted log_Price for Model 1
+plot(exp(actual_values), exp(predictions_1), main = "Actual vs Predicted [Model 1]",
+     xlab = "Actual Log(Price)", ylab = "Predicted Log(Price)")
+abline(a = 0, b = 1, col='red')
+
+# Calculate performance metrics for Model 1
+mae1 <- mean(abs(exp(predictions_1) - exp(actual_values)), na.rm = TRUE)
+rmse1 <- sqrt(mean((exp(predictions_1) - exp(actual_values))^2, na.rm = TRUE))
+cat(paste("Model 1 - Mean Absolute Error (MAE):", format(mae1, nsmall = 4)), "\n")
+cat(paste("Model 1 - Root Mean Squared Error (RMSE):", format(rmse1, nsmall = 4)), "\n")
+
+# plot actual vs predicted log_Price for Model 2
+plot(exp(actual_values), exp(predictions_2), main = "Actual vs Predicted [Model 2]",
+     xlab = "Actual Log(Price)", ylab = "Predicted Log(Price)")
+abline(a = 0, b = 1, col='red')
+
+# Calculate performance metrics for Model 2
+mae2 <- mean(abs(exp(predictions_2) - exp(actual_values)), na.rm = TRUE)
+rmse2 <- sqrt(mean((exp(predictions_2) - exp(actual_values))^2, na.rm = TRUE))
+cat(paste("Model 2 - Mean Absolute Error (MAE):", format(mae2, nsmall = 4)), "\n")
+cat(paste("Model 2 - Root Mean Squared Error (RMSE):", format(rmse2, nsmall = 4)), "\n")
+
+# plot actual vs predicted log_Price for Model 3
+plot(exp(actual_values), exp(predictions_3), main = "Actual vs Predicted [Model 3]",
+     xlab = "Actual Log(Price)", ylab = "Predicted Log(Price)")
+abline(a = 0, b = 1, col='red')
+
+# Calculate performance metrics for Model 3
+mae3 <- mean(abs(exp(predictions_3) - exp(actual_values)), na.rm = TRUE)
+rmse3 <- sqrt(mean((exp(predictions_3) - exp(actual_values))^2, na.rm = TRUE))
+cat(paste("Model 3 - Mean Absolute Error (MAE):", format(mae3, nsmall = 4)), "\n")
+cat(paste("Model 3 - Root Mean Squared Error (RMSE):", format(rmse3, nsmall = 4)), "\n")
+
+# It seems that model 1 is the best model.
+
+## Test the Best Model ----
+
+# make predictions on test set
+predictions_test <- predict(model_1, newdata = df_test)
+
+# get actual log_Price values from test set
+actual_values_test <- df_test$log_Price
+
+# Calculate performance metrics
+mae_test <- mean(abs(exp(predictions_test) - exp(actual_values_test)), na.rm = TRUE)
+rmse_test <- sqrt(mean((exp(predictions_test) - exp(actual_values_test))^2, na.rm = TRUE))
+cat(paste("Test - Mean Absolute Error (MAE):", format(mae_test, nsmall = 4)), "\n")
+cat(paste("Test - Root Mean Squared Error (RMSE):", format(rmse_test, nsmall = 4)), "\n")
+
+# plot actual vs predicted log_Price for test data
+plot(exp(actual_values_test), exp(predictions_test), main = "Actual vs Predicted [Test]",
+     xlab = "Actual Log(Price)", ylab = "Predicted Log(Price)")
+abline(a = 0, b = 1, col='red')
