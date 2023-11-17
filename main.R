@@ -391,6 +391,19 @@ df_fil$Bodytype <- as.factor(df_fil$Bodytype)
 df_fil$Gearbox <- as.factor(df_fil$Gearbox)
 df_fil$Color <- as.factor(df_fil$Color)
 
+# view baselines for categorical variables
+levels(df_fil$Maker)[1] # Make
+levels(df_fil$Bodytype)[1] # Body Type
+levels(df_fil$Gearbox)[1] # Gearbox
+levels(df_fil$Fuel_type)[1] # Fuel Type
+levels(df_fil$Color)[1] # Color
+
+# change the baselines for easier interpretation of coefficients
+df_fil$Maker <- relevel(df_fil$Maker, ref = "Toyota")
+df_fil$Bodytype <- relevel(df_fil$Bodytype, ref = "Saloon")
+df_fil$Fuel_type <- relevel(df_fil$Fuel_type, ref = "Petrol")
+df_fil$Color <- relevel(df_fil$Color, ref = "White")
+
 # Randomize the dataset by sampling rows
 df_fil <- df_fil[sample(nrow(df_fil)), ]
 
@@ -413,7 +426,13 @@ model_1 <- lm(log_Price ~ Runned_Miles + Reg_year + Engin_size + Bodytype + Make
 
 # View the model summary
 summary(model_1)
-  
+  # Note: since the dependent variable is log transformed, we must exponentiate
+  # the coefficient (e^coeff) to get the multiplicative factor for every 
+  # one-unit increase in the independent variable. 
+  # For example, the coefficient on MakerBMW is 1.393e-01 --> exp(1.393e-01)
+  # is 1.149469. This means for every 1 unit increase in the MakerBMW variable,
+  # the sale price increases by a factor of 1.149, or approximately 15%.
+
 # create fitted vs residuals plot
 residuals <- residuals(model_1)
 fitted_values <- fitted(model_1)
