@@ -39,4 +39,4 @@ Citation:
 * Jingming Huang, Bowei Chen, Lan Luo, Shigang Yue, and Iadh Ounis. (2022). "DVM-CAR: A large-scale automotive dataset for visual marketing research and applications". In Proceedings of IEEE International Conference on Big Data, pp.4130–4137. [[PDF_link]](https://arxiv.org/pdf/2109.00881)
 
 ## How to Run the Script
-To run my script on your own computer, all you need to do is fork this repository and then set your working directory in line 16. The *Ad Table* needed for the script is included in this repository, but you can download all the data from [here](https://deepvisualmarketing.github.io/). 
+To run my script on your own computer, all you need to do is fork this repository and then set your working directory in line 16. The *Ad Table* data needed for the script is included in this repository, but you can download all the data from [here](https://deepvisualmarketing.github.io/). 
