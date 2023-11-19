@@ -50,7 +50,7 @@ summary(df)
 
 # Lets take a look at the month outlier
 month <- df %>% arrange(desc(Adv_month))
-head(month, 10)
+head(month['Adv_month'], 10)
   # It appears that there are 3 observations where the month is above 12. I will
   # remove them from the dataset since it is just 3 observations and won't have
   # a big impact on the analysis.

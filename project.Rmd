@@ -1,0 +1,327 @@
+---
+title: "Modelling Used Car Prices in R"
+author: "Alejandro Vazquez"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE) # sets the code chunk format
+rm(list = ls()) # clears the environment
+```
+
+# Load Libraries and Data
+
+```{r message=FALSE, warning=FALSE}
+# load libraries
+library(ggplot2)
+library(GGally)
+library(tidyr)
+library(dplyr)
+library(fixest)
+library(car)
+library(caret)
+
+# clear environment
+rm(list = ls())
+
+# set working directory
+setwd("/Users/alejandrovazquez/Desktop/econ121/car-sales-data")
+
+# load data
+df <- read.csv("Ad_table.csv")
+```
+
+\newpage
+
+# Cleaning and Transformation
+
+```{r echo=TRUE}
+
+# verify data types are what they should be
+sapply(df, class)
+
+# change 'Runned_Miles' to integer type
+df <- df %>% mutate(Runned_Miles = na_if(Runned_Miles, ""))
+df$Runned_Miles <- as.integer(df$Runned_Miles)
+
+# change 'Price' to integer type
+df <- df %>% mutate(Price = na_if(Price, "Uknown"))
+df$Price <- as.integer(df$Price)
+
+# change blank values to NA
+df <- df %>% mutate(Bodytype = na_if(Bodytype, "")) # Bodytype
+df <- df %>% mutate(Color = na_if(Color, "")) # Color
+df <- df %>% mutate(Engin_size = na_if(Engin_size, "")) # Engin_size
+df <- df %>% mutate(Gearbox = na_if(Gearbox, "")) # Gearbox
+df <- df %>% mutate(Fuel_type = na_if(Fuel_type, "")) # Fuel_type
+
+# Remove 'L' from the end of the Engin_size values and convert to numeric
+df$Engin_size <- gsub("L", "", df$Engin_size)
+df$Engin_size <- as.numeric(df$Engin_size)
+
+# view a summary of the data to see if any other adjustments are needed
+summary(df)
+```
+
+There may be some mis-entered data in the month column as evidenced by
+the max value being 33. The number of null values shouldn't be an issue
+considering the size of the dataset.
+
+
+```{r echo=TRUE}
+# Lets take a look at the month outlier
+month <- df %>% arrange(desc(Adv_month))
+head(month['Adv_month'], 10)
+```
+
+It appears that there are 3 observations where the month is above 12. I will
+remove them from the dataset since it is just 3 observations and won't have
+a big impact on the analysis.
+
+
+```{r echo=TRUE}
+# Remove month outliers
+df <- df %>% filter(Adv_month <= 12)
+```
+
+\newpage
+
+# Exploratory Analysis: Maker
+
+```{r echo=TRUE}
+# view the top 10 manufacturers represented in this dataset
+make_counts <- df %>%
+  group_by(Maker) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+
+top_10 <- head(make_counts, 10) # top 10
+ggplot(top_10, aes(x = reorder(Maker, -count), y = count)) +
+  geom_bar(stat = "identity", fill = "deepskyblue4") +
+  geom_text(aes(label = count), vjust = -0.5, position = position_dodge(width = 0.9)) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1)) +
+  xlab("Maker") +
+  ylab("Count") +
+  ggtitle("Top 10 Car Makers by Count")
+
+
+summary(make_counts$count)
+```
+
+It seems that 25% of the makes in our dataset have less than 3 vehicles.
+Because of this we may need to remove these makes before creating dummies for
+'Maker' to prevent overfitting and reduce model complexity.
+
+
+```{r echo=TRUE}
+# Lets set a threshold at 50 vehicles.
+df_fil <- df %>% filter(Maker %in% make_counts$Maker[make_counts$count >= 50])
+```
+
+I believe this is reasonable because  removes makes infrequently represented
+in the data while maintaining a majority of the data. Plus, this threshold
+ensures most high-end low-volume manufacturers like McLaren and Aston Martin
+remain in the dataset.
+
+\newpage
+
+# Exploratory Analysis: Body Type
+
+```{r echo=TRUE}
+# create a bar chart to show the body types in our dataset
+bodytype_counts <- df %>% 
+  group_by(Bodytype) %>% 
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+ggplot(bodytype_counts, aes(x = reorder(Bodytype, -count), y = count)) +
+  geom_bar(stat = "identity", fill = "firebrick4") +
+  geom_text(aes(label = count), vjust = -0.5, position = position_dodge(width = 0.9)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("Body Type") +
+  ylab("Count") +
+  ggtitle("Count of Vehicles by Body Type")
+```
+
+We will need to remove some of the body types with low counts if we
+wish to create a dummy variable for 'Bodytype'.
+
+
+```{r echo=TRUE}
+summary(bodytype_counts$count)
+
+# We will set a threshold at 700.
+df_fil <- df_fil %>% filter(Bodytype %in% bodytype_counts$Bodytype[bodytype_counts$count >= 700])
+```
+
+This removes all the specialty body types while maintaining all the standard
+body types, which includes the majority of the data.
+
+\newpage
+
+# Exploratory Analysis: Fuel Type
+
+```{r echo=TRUE}
+# create a bar chart to show the fuel types in our dataset
+fueltype_counts <- df %>% 
+  group_by(Fuel_type) %>% 
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+ggplot(fueltype_counts, aes(x = reorder(Fuel_type, -count), y = count)) +
+  geom_bar(stat = "identity", fill = "darkgreen") +
+  geom_text(aes(label = count), vjust = -0.5, position = position_dodge(width = 0.9)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("Fuel Type") +
+  ylab("Count") +
+  ggtitle("Count of Vehicles by Fuel Type")
+
+```
+
+It seems the vast majority of vehicles are Diesel or Petrol (~ 97%), with a
+small proportion being hybrid (~ 1.7%) or electric (~ 0.5%). This is also
+a concern if we wish to create dummy variables for fuel type.
+
+
+```{r echo=TRUE}
+summary(fueltype_counts$count)
+
+# We will set a threshold at 300.
+df_fil <- df_fil %>% filter(Fuel_type %in% fueltype_counts$Fuel_type[fueltype_counts$count >= 300])
+```
+
+This removes the fuel types that are not common while maintaining the most
+common fuel types which represent the majority of the data.
+
+\newpage
+
+# Exploratory Analysis: Color
+
+```{r echo=TRUE}
+# create a bar chart to show the colors in our dataset
+color_counts <- df %>% 
+  group_by(Color) %>% 
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+ggplot(color_counts, aes(x = reorder(Color, -count), y = count)) +
+  geom_bar(stat = "identity", fill = "darkorchid4") +
+  geom_text(aes(label = count), vjust = -0.5, position = position_dodge(width = 0.9)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("Color") +
+  ylab("Count") +
+  ggtitle("Count of Vehicles by Color")
+```
+
+Most of the vehicles in our dataset are black, silver, blue, grey, white,
+and red. If we wish to create dummy variables for color we may have to
+remove the other colors, but there is a large amount of NAs which may
+prevent us from doing so.
+
+
+```{r echo=TRUE}
+summary(color_counts$count)
+```
+
+For now I won't filter out any colors because I do not think color has
+that large of an impact on sale price. Although I may revisit this later.
+
+\newpage
+
+# Exploratory Analysis: Engine Size
+
+```{r echo=TRUE}
+# plot a box plot for engine size to see outliers
+boxplot(df_fil$Engin_size, main = "Boxplot of Engine Size", ylab = "Engine Size")
+```
+
+Looks like there are some significant outliers, one vehicle even has
+3000 Liters! Lets remove them since it is only a few.
+
+
+```{r echo=TRUE}
+# identify outliers by engine size
+IQR_values <- IQR(df$Engin_size, na.rm = TRUE)
+Q1 <- quantile(df$Engin_size, 0.25, na.rm = TRUE)
+Q3 <- quantile(df$Engin_size, 0.75, na.rm = TRUE)
+
+lower_bound <- Q1 - 1.5 * IQR_values # 0.5
+upper_bound <- Q3 + 1.5 * IQR_values # 2.9
+
+outliers <- subset(df, Engin_size < lower_bound | Engin_size > upper_bound)
+nrow(outliers)
+```
+
+Because there are 37,314 outliers, I think we should only remove the 
+extreme outliers so as not to lost too much data.
+  
+  
+```{r echo=TRUE}
+# Remove outliers with extremely large engine size (5 observations)
+df_fil <- subset(df_fil, Engin_size <= 8)
+
+# create a histogram to show the engine sizes in our dataset
+ggplot(df_fil, aes(x = Engin_size)) +
+  geom_histogram(binwidth = 0.5, fill = "snow3", color = "black") +
+  xlab("Engine Size (L)") +
+  ylab("Frequency") +
+  ggtitle("Distribution of Vehicle Engine Sizes")
+
+# Log transformation of Engine Size to mitigate effect of outliers
+df_fil$log_Engin_size <- log(df_fil$Engin_size + 1)
+```
+
+\newpage
+
+# Exploratory Analysis: Gearbox
+
+```{r echo=TRUE}
+# The PDF will show the code AND output here.
+
+```
+
+```{r echo=TRUE}
+# The PDF will show the code AND output here.
+
+```
+
+```{r echo=TRUE}
+# The PDF will show the code AND output here.
+
+```
+
+```{r echo=TRUE}
+# The PDF will show the code AND output here.
+
+```
+
+```{r echo=TRUE}
+# The PDF will show the code AND output here.
+
+```
+
+```{r echo=TRUE}
+# The PDF will show the code AND output here.
+
+```
+
+```{r echo=TRUE}
+# The PDF will show the code AND output here.
+
+```
+
+
+
+
+
+# Template
+
+```{r message=FALSE, warning=FALSE}
+# The PDF will show the code you write here but not the output.
+
+```
+
+```{r echo=TRUE}
+# The PDF will show the code AND output here.
+
+```
