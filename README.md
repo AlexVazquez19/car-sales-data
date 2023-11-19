@@ -40,3 +40,5 @@ Citation:
 
 ## How to Run the Script
 To run my script on your own computer, all you need to do is fork this repository and then set your working directory in line 16. The *Ad Table* data needed for the script is included in this repository, but you can download all the data from [here](https://deepvisualmarketing.github.io/). 
+
+Alternatively, you can download `project.pdf` to see a walkthrough of my script with visualizations and commentary.
