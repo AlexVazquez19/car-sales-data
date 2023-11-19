@@ -284,7 +284,8 @@ upper_bound <- Q3 + 1.5 * IQR_values # 166,272
 
 # Because a vehicle cannot have negative miles, we can disregard the lower bound
 outliers <- subset(df, Runned_Miles > upper_bound)
-  # We have 1,739 outliers. Lets remove them since it is only a small portion
+nrow(outliers)
+  # We have 1,749 outliers. Lets remove them since it is only a small portion
   # of the data and it will give us a clearer effect of miles on sale price
   # in our model.
 
@@ -334,7 +335,7 @@ lower_bound <- Q1 - 1.5 * IQR_values # -13,250
 upper_bound <- Q3 + 1.5 * IQR_values # 35,390
 
 # Because a vehicle cannot sell for a negative price, we can disregard the lower bound
-outliers <- subset(df, Price > 100000)
+outliers <- subset(df, Price > upper_bound)
 nrow(outliers) 
   # Since there are 19,033 outliers, we will need to be careful not to remove
   # all of them. I will set a threshold at 500,000 to remove the extreme
@@ -384,7 +385,7 @@ plot(df_fil$Reg_year, df_fil$log_Price, main = "Model Year vs Log(Price)")
 
 set.seed(792002) # Set a seed for reproducibility
 
-# convert categorical variables as factors
+# convert categorical variables to factors
 df_fil$Maker <- as.factor(df_fil$Maker)
 df_fil$Fuel_type <- as.factor(df_fil$Fuel_type)
 df_fil$Bodytype <- as.factor(df_fil$Bodytype)
